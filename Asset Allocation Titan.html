@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Plan: Dynamic Titans v2.2 (Record Fix)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --accent-color: #2c3e50;
+            --input-bg: #fff;
+            --border-color: #e1e4e8;
+            
+            --agg-color: #e74c3c;
+            --bal-agg-color: #e67e22;
+            --bal-color: #3498db;
+            --bal-def-color: #1abc9c;
+            --def-color: #27ae60;
+            --cry-color: #f1c40f;
+            --cash-color: #95a5a6;
+
+            --agg-bg: #fdedec;
+            --bal-agg-bg: #fdf2e9;
+            --bal-bg: #ebf5fb;
+            --bal-def-bg: #e8f8f5;
+            --def-bg: #e9f7ef;
+            --cry-bg: #fef9e7;
+            --cash-bg: #f2f4f6;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --accent-color: #4da6ff;
+            --input-bg: #404040;
+            --border-color: #444;
+            
+            --agg-bg: #381b1b;
+            --bal-agg-bg: #38281b;
+            --bal-bg: #1a252f;
+            --bal-def-bg: #162e29;
+            --def-bg: #192b21;
+            --cry-bg: #2c2918;
+            --cash-bg: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1300px; /* Width increased for extra column */
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; }
+        h1 { margin: 0; color: var(--accent-color); font-size: 24px; }
+
+        .theme-switch-wrapper { display: flex; align-items: center; }
+        .theme-switch { display: inline-block; height: 24px; position: relative; width: 46px; }
+        .theme-switch input { display:none; }
+        .slider { background-color: #ccc; bottom: 0; cursor: pointer; left: 0; position: absolute; right: 0; top: 0; transition: .4s; border-radius: 34px; }
+        .slider:before { background-color: white; bottom: 4px; content: ""; height: 16px; left: 4px; position: absolute; transition: .4s; width: 16px; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-color); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .config-panel {
+            background-color: rgba(0,0,0,0.03);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .config-item { text-align: center; flex: 1; min-width: 80px; }
+        .config-label { font-size: 13px; font-weight: bold; margin-bottom: 5px; display: block; white-space: nowrap; }
+        .config-dynamic { font-size: 12px; color: #7f8c8d; font-weight: 600; display: block; margin-top: 4px;}
+        
+        .alloc-input {
+            width: 50px;
+            padding: 5px;
+            text-align: center;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 15px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+        .alloc-input:focus { outline: none; border-color: var(--accent-color); }
+        .alloc-input.warning { border-color: #e74c3c !important; background-color: #fce4e4 !important; color: #c0392b; }
+        .config-dynamic.warning { color: #e74c3c; font-weight: bold; }
+
+        .c-agg { color: var(--agg-color); }
+        .c-bal-agg { color: var(--bal-agg-color); }
+        .c-bal { color: var(--bal-color); }
+        .c-bal-def { color: var(--bal-def-color); }
+        .c-def { color: var(--def-color); }
+        .c-cry { color: var(--cry-color); }
+        .c-cash { color: var(--cash-color); }
+
+        .input-group { background-color: var(--bg-color); padding: 20px; border-radius: 8px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .input-group label { font-size: 16px; font-weight: 600; margin-right: 15px; }
+        .input-group input { font-size: 20px; padding: 10px 15px; border: 2px solid var(--border-color); background-color: var(--input-bg); color: var(--text-color); border-radius: 6px; width: 200px; text-align: right; }
+
+        /* Updated Grid for new Column */
+        .table-header { display: grid; grid-template-columns: 40px 100px 1fr 80px 100px 120px 40px; font-weight: bold; padding: 10px; background-color: var(--accent-color); color: white; border-radius: 6px 6px 0 0; }
+        .item-list { list-style: none; padding: 0; margin: 0; }
+        .item { display: grid; grid-template-columns: 40px 100px 1fr 80px 100px 120px 40px; padding: 12px 10px; border-bottom: 1px solid var(--border-color); align-items: center; transition: background-color 0.2s; }
+        
+        .item:hover { filter: brightness(95%); }
+        .handle { cursor: grab; display: flex; justify-content: center; color: #999; }
+        
+        .item input.ticker-input { border: 1px solid transparent; padding: 5px; font-size: 15px; width: 90%; background: transparent; color: var(--text-color); font-weight: 600; }
+        .item input.ticker-input:focus { border: 1px solid var(--accent-color); border-radius: 4px; outline: none; }
+        
+        .item select.sector-select {
+            border: 1px solid var(--border-color);
+            background: var(--input-bg);
+            color: var(--text-color);
+            padding: 4px;
+            border-radius: 4px;
+            font-size: 13px;
+            width: 95%;
+        }
+
+        .item input.weight-input { 
+            border: 1px solid transparent; background: transparent; color: #555; 
+            text-align: right; width: 80%; font-size: 15px; cursor: text; font-weight: bold;
+        }
+        .item input.weight-input:focus { border: 1px solid var(--accent-color); background: var(--input-bg); border-radius: 4px; outline: none; }
+
+        .amount-cell { font-weight: normal; text-align: right; padding-right: 15px; color: #7f8c8d; font-size: 14px; }
+        
+        /* New Actual Input Style */
+        .item input.actual-input {
+            border: 2px solid #27ae60;
+            background: var(--input-bg);
+            color: #27ae60;
+            text-align: right;
+            width: 90%;
+            font-size: 15px;
+            font-weight: bold;
+            border-radius: 4px;
+            padding: 5px;
+        }
+
+        .delete-btn { cursor: pointer; color: #e74c3c; border: none; background: none; font-size: 18px; font-weight: bold; }
+
+        .item.agg { background-color: var(--agg-bg); }
+        .item.bal-agg { background-color: var(--bal-agg-bg); }
+        .item.bal { background-color: var(--bal-bg); }
+        .item.bal-def { background-color: var(--bal-def-bg); }
+        .item.def { background-color: var(--def-bg); }
+        .item.crypto { background-color: var(--cry-bg); }
+        .item.cash { background-color: var(--cash-bg); }
+
+        .footer-summary { margin-top: 20px; display: flex; justify-content: space-between; padding: 15px; background-color: var(--bg-color); border-radius: 8px; font-weight: bold; }
+        .btn-area { margin-top: 20px; text-align: right; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+        button { padding: 10px 20px; font-size: 14px; border: none; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; font-weight: 600; color: white; }
+        button:hover { opacity: 0.9; }
+
+        .btn-add { background-color: var(--accent-color); }
+        .btn-reset { background-color: #95a5a6; }
+        
+        .btn-invest { background-color: #2980b9; font-size: 16px; padding: 12px 25px; width: 100%; margin-top: 30px; }
+        .btn-export { background-color: #27ae60; }
+        .btn-danger { background-color: #c0392b; }
+        
+        .chart-container { margin-top: 40px; padding-top: 20px; border-top: 2px dashed var(--border-color); }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .total-invested-display { font-size: 20px; font-weight: bold; color: var(--accent-color); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-area">
+        <h1>🏆 Master Plan: Dynamic Titans v2.2</h1>
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch" for="checkbox">
+                <input type="checkbox" id="checkbox" />
+                <div class="slider"></div>
+            </label>
+            <span style="margin-left: 10px; font-size:14px;">Dark Mode</span>
+        </div>
+    </div>
+
+    <div class="config-panel">
+        <div class="config-item"><label class="config-label c-agg">Agg</label><input type="number" id="targetAgg" class="alloc-input" value="30" oninput="calculate(true)"><span class="config-dynamic" id="realAgg">0%</span></div>
+        <div class="config-item"><label class="config-label c-bal-agg">Bal-Agg</label><input type="number" id="targetBalAgg" class="alloc-input" value="20" oninput="calculate(true)"><span class="config-dynamic" id="realBalAgg">0%</span></div>
+        <div class="config-item"><label class="config-label c-bal">Balanced</label><input type="number" id="targetBal" class="alloc-input" value="15" oninput="calculate(true)"><span class="config-dynamic" id="realBal">0%</span></div>
+        <div class="config-item"><label class="config-label c-bal-def">Bal-Def</label><input type="number" id="targetBalDef" class="alloc-input" value="10" oninput="calculate(true)"><span class="config-dynamic" id="realBalDef">0%</span></div>
+        <div class="config-item"><label class="config-label c-def">Def</label><input type="number" id="targetDef" class="alloc-input" value="10" oninput="calculate(true)"><span class="config-dynamic" id="realDef">0%</span></div>
+        <div class="config-item"><label class="config-label c-cry">Crypto</label><input type="number" id="targetCry" class="alloc-input" value="10" oninput="calculate(true)"><span class="config-dynamic" id="realCry">0%</span></div>
+        <div class="config-item"><label class="config-label c-cash">Cash</label><input type="number" id="targetCash" class="alloc-input" value="5" oninput="calculate(true)"><span class="config-dynamic" id="realCash">0%</span></div>
+        <div class="config-item"><label class="config-label">Total</label><span id="targetSumCheck" style="font-size:16px; font-weight:bold; color:#27ae60; line-height: 36px;">100%</span></div>
+    </div>
+
+    <div class="input-group">
+        <label for="totalInvest">💰 이번 달 투자할 금액 (Deposit Amount)</label>
+        <input type="number" id="totalInvest" value="10000" oninput="calculate(true)">
+    </div>
+
+    <div class="table-header">
+        <div style="text-align:center">Move</div>
+        <div>Group</div>
+        <div>Ticker / Name</div>
+        <div style="text-align:right; padding-right:10px;">Weight (%)</div>
+        <div style="text-align:right; padding-right:10px;">To Buy (Rec)</div>
+        <div style="text-align:right; padding-right:10px; color:#2eff7d;">Actual ($)</div>
+        <div style="text-align:center">Del</div>
+    </div>
+
+    <ul class="item-list" id="itemList"></ul>
+
+    <div class="footer-summary">
+        <div id="weightCheck" style="color:#27ae60">Total Weight: 100%</div>
+        <div id="amountCheck">Total Rec: $10,000</div>
+    </div>
+
+    <div class="btn-area">
+        <button class="btn-reset" onclick="resetRules()">🔄 Reset Default</button>
+        <button class="btn-add" onclick="addNewItem()">➕ Add New Ticker</button>
+    </div>
+    
+    <button class="btn-invest" onclick="recordInvestment()">💾 RECORD INVESTMENT (Save Actuals)</button>
+
+    <div class="chart-container" id="historySection">
+        <div class="chart-header">
+            <h3>📊 Portfolio History</h3>
+            <div>
+                <button class="btn-danger" onclick="resetHistory()">🗑️ Reset History</button>
+                <button class="btn-export" onclick="exportToExcel()">📥 Export (.xlsx)</button>
+            </div>
+        </div>
+        <div class="total-invested-display" id="grandTotalDisplay">Total Invested: $0</div>
+        <div style="height: 400px; margin-top: 20px; display:flex; justify-content:center;">
+            <canvas id="assetChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    const defaultData = [
+        { ticker: "NVDA", sector: "agg" },
+        { ticker: "TSLA", sector: "agg" },
+        { ticker: "AAPL", sector: "bal-agg" },
+        { ticker: "MSFT", sector: "bal-agg" },
+        { ticker: "GOOGL", sector: "bal" },
+        { ticker: "AMZN", sector: "bal" },
+        { ticker: "META", sector: "bal-def" },
+        { ticker: "AVGO", sector: "bal-def" },
+        { ticker: "COST", sector: "def" },
+        { ticker: "JNJ", sector: "def" },
+        { ticker: "IBIT", sector: "crypto" },
+        { ticker: "ETHA", sector: "crypto" },
+        { ticker: "USD", sector: "cash" }
+    ];
+
+    const SECTORS = ['agg', 'bal-agg', 'bal', 'bal-def', 'def', 'crypto', 'cash'];
+    const SECTOR_LABELS = {
+        'agg': 'Aggressive',
+        'bal-agg': 'Bal-Agg',
+        'bal': 'Balanced',
+        'bal-def': 'Bal-Def',
+        'def': 'Defensive',
+        'crypto': 'Crypto',
+        'cash': 'Cash'
+    };
+
+    let portfolio = [];
+    let history = [];
+    let myChart = null;
+
+    window.onload = function() {
+        const saved = localStorage.getItem('titansPortfolio_v22');
+        const savedAlloc = localStorage.getItem('titansAllocSettings_v22');
+        if (savedAlloc) {
+            const alloc = JSON.parse(savedAlloc);
+            document.getElementById('targetAgg').value = alloc.agg;
+            document.getElementById('targetBalAgg').value = alloc.balAgg;
+            document.getElementById('targetBal').value = alloc.bal;
+            document.getElementById('targetBalDef').value = alloc.balDef;
+            document.getElementById('targetDef').value = alloc.def;
+            document.getElementById('targetCry').value = alloc.cry;
+            document.getElementById('targetCash').value = alloc.cash;
+        }
+
+        portfolio = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(defaultData));
+        const savedHistory = localStorage.getItem('titansHistory_v22');
+        history = savedHistory ? JSON.parse(savedHistory) : [];
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        if (currentTheme === 'dark') document.getElementById('checkbox').checked = true;
+        
+        renderList(); 
+        calculate(false); 
+        updateChart();
+    };
+
+    const toggleSwitch = document.querySelector('.theme-switch input[type="checkbox"]');
+    toggleSwitch.addEventListener('change', function(e) {
+        if (e.target.checked) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            localStorage.setItem('theme', 'light');
+        }
+        updateChart();
+    });
+
+    function calculate(forceEqual = false) {
+        const targets = {
+            agg: parseFloat(document.getElementById('targetAgg').value) || 0,
+            balAgg: parseFloat(document.getElementById('targetBalAgg').value) || 0,
+            bal: parseFloat(document.getElementById('targetBal').value) || 0,
+            balDef: parseFloat(document.getElementById('targetBalDef').value) || 0,
+            def: parseFloat(document.getElementById('targetDef').value) || 0,
+            cry: parseFloat(document.getElementById('targetCry').value) || 0,
+            cash: parseFloat(document.getElementById('targetCash').value) || 0
+        };
+
+        localStorage.setItem('titansAllocSettings_v22', JSON.stringify(targets));
+
+        const totalSum = Object.values(targets).reduce((a,b) => a+b, 0);
+        const sumDisplay = document.getElementById('targetSumCheck');
+        sumDisplay.innerText = totalSum + '%';
+        sumDisplay.style.color = Math.abs(totalSum - 100) < 0.1 ? '#27ae60' : '#e74c3c';
+
+        const totalMoney = parseFloat(document.getElementById('totalInvest').value) || 0;
+        const listItems = document.querySelectorAll('.item');
+        
+        let counts = { agg:0, 'bal-agg':0, bal:0, 'bal-def':0, def:0, crypto:0, cash:0 };
+        listItems.forEach(item => {
+            const sec = item.querySelector('.sector-select').value;
+            if(counts[sec] !== undefined) counts[sec]++;
+        });
+
+        let currentSums = { agg:0, 'bal-agg':0, bal:0, 'bal-def':0, def:0, crypto:0, cash:0 };
+        let totalAllocated = 0;
+        let totalWeightSum = 0;
+        portfolio = [];
+
+        listItems.forEach(item => {
+            const ticker = item.querySelector('.ticker-input').value;
+            const sectorSelect = item.querySelector('.sector-select');
+            const weightInput = item.querySelector('.weight-input');
+            const actualInput = item.querySelector('.actual-input');
+            const sector = sectorSelect.value;
+            
+            item.className = `item ${sector}`;
+
+            let weight = 0;
+
+            if (forceEqual) {
+                let targetVal = targets.agg;
+                if(sector === 'bal-agg') targetVal = targets.balAgg;
+                else if(sector === 'bal') targetVal = targets.bal;
+                else if(sector === 'bal-def') targetVal = targets.balDef;
+                else if(sector === 'def') targetVal = targets.def;
+                else if(sector === 'crypto') targetVal = targets.cry;
+                else if(sector === 'cash') targetVal = targets.cash;
+
+                weight = counts[sector] > 0 ? (targetVal / counts[sector]) : 0;
+                weightInput.value = weight.toFixed(2);
+            } else {
+                weight = parseFloat(weightInput.value) || 0;
+            }
+
+            currentSums[sector] += weight;
+            
+            const amount = totalMoney * (weight / 100);
+            item.querySelector('.amount-cell').innerText = '$' + amount.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+            
+            // Auto-fill Actual Input with Calculated amount (User can override)
+            // Only update actual input if we are forcing recalculation or if it's empty to respect user edits during session
+            if (forceEqual || actualInput.value === "" || actualInput.value == 0) {
+                 actualInput.value = Math.round(amount);
+            }
+
+            totalAllocated += amount;
+            totalWeightSum += weight;
+            portfolio.push({ ticker, sector, weight });
+        });
+
+        validateGroup(currentSums.agg, targets.agg, 'targetAgg', 'realAgg');
+        validateGroup(currentSums['bal-agg'], targets.balAgg, 'targetBalAgg', 'realBalAgg');
+        validateGroup(currentSums.bal, targets.bal, 'targetBal', 'realBal');
+        validateGroup(currentSums['bal-def'], targets.balDef, 'targetBalDef', 'realBalDef');
+        validateGroup(currentSums.def, targets.def, 'targetDef', 'realDef');
+        validateGroup(currentSums.crypto, targets.cry, 'targetCry', 'realCry');
+        validateGroup(currentSums.cash, targets.cash, 'targetCash', 'realCash');
+
+        document.getElementById('weightCheck').innerText = `Total Weight: ${totalWeightSum.toFixed(1)}%`;
+        document.getElementById('amountCheck').innerText = `Total Rec: $${totalAllocated.toLocaleString()}`;
+        
+        localStorage.setItem('titansPortfolio_v22', JSON.stringify(portfolio));
+    }
+
+    function validateGroup(currentSum, targetVal, inputId, spanId) {
+        const inputEl = document.getElementById(inputId);
+        const spanEl = document.getElementById(spanId);
+        spanEl.innerText = `Sum: ${currentSum.toFixed(1)}%`;
+        if (Math.abs(currentSum - targetVal) > 0.1) {
+            inputEl.classList.add('warning');
+            spanEl.classList.add('warning');
+        } else {
+            inputEl.classList.remove('warning');
+            spanEl.classList.remove('warning');
+        }
+    }
+
+    function recordInvestment() {
+        // Calculate Total from Actual Inputs
+        const listItems = document.querySelectorAll('.item');
+        let grandActualTotal = 0;
+        let breakdown = [];
+        let today = new Date().toISOString().slice(0, 10);
+
+        listItems.forEach(item => {
+            const ticker = item.querySelector('.ticker-input').value;
+            const sector = item.querySelector('.sector-select').value;
+            const weight = parseFloat(item.querySelector('.weight-input').value) || 0;
+            const actualAmount = parseFloat(item.querySelector('.actual-input').value) || 0;
+
+            grandActualTotal += actualAmount;
+            breakdown.push({
+                ticker: ticker,
+                sector: sector,
+                weight: weight,
+                amount: actualAmount
+            });
+        });
+
+        if (grandActualTotal <= 0) return alert("매수 기록할 금액이 없습니다 (Actual 금액 확인).");
+        if(!confirm(`총 $${grandActualTotal.toLocaleString()} 매수 기록을 저장하시겠습니까?\n(입력한 Actual 금액 기준)`)) return;
+
+        const record = { id: Date.now(), date: today, totalAmount: grandActualTotal, breakdown: breakdown };
+        history.push(record);
+        localStorage.setItem('titansHistory_v22', JSON.stringify(history));
+        updateChart();
+        alert("✅ 기록 완료!");
+    }
+
+    function resetHistory() {
+        if(confirm("모든 투자 기록을 삭제하시겠습니까?")) {
+            history = [];
+            localStorage.removeItem('titansHistory_v22');
+            updateChart();
+        }
+    }
+
+    function updateChart() {
+        const ctx = document.getElementById('assetChart').getContext('2d');
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDark ? '#e0e0e0' : '#333';
+
+        let tickerTotals = {};
+        let grandTotal = 0;
+        let sectorMap = {}; 
+
+        history.forEach(record => {
+            grandTotal += record.totalAmount;
+            record.breakdown.forEach(item => {
+                if (!tickerTotals[item.ticker]) {
+                    tickerTotals[item.ticker] = 0;
+                    sectorMap[item.ticker] = item.sector;
+                }
+                tickerTotals[item.ticker] += item.amount;
+            });
+        });
+
+        document.getElementById('grandTotalDisplay').innerText = `Total Invested: $${grandTotal.toLocaleString()}`;
+
+        const sortedTickers = Object.keys(tickerTotals).sort((a,b) => tickerTotals[b] - tickerTotals[a]);
+        const dataPoints = sortedTickers.map(t => tickerTotals[t]);
+        const backgroundColors = sortedTickers.map(t => {
+            const sec = sectorMap[t];
+            if(sec === 'agg') return '#e74c3c';
+            if(sec === 'bal-agg') return '#e67e22';
+            if(sec === 'bal') return '#3498db';
+            if(sec === 'bal-def') return '#1abc9c';
+            if(sec === 'def') return '#27ae60';
+            if(sec === 'crypto') return '#f1c40f';
+            if(sec === 'cash') return '#95a5a6';
+            return '#bdc3c7';
+        });
+
+        if (myChart) myChart.destroy();
+        myChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: sortedTickers,
+                datasets: [{
+                    data: dataPoints,
+                    backgroundColor: backgroundColors,
+                    borderWidth: 1,
+                    borderColor: isDark ? '#2d2d2d' : '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { color: textColor } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                let value = context.raw || 0;
+                                let percent = (grandTotal > 0) ? (value / grandTotal * 100).toFixed(1) : 0;
+                                return `${label}: $${value.toLocaleString()} (${percent}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function exportToExcel() {
+        if (history.length === 0) return alert("내보낼 기록이 없습니다.");
+        const flatData = [];
+        history.forEach(record => {
+            flatData.push({ Date: record.date, "Total Invested": record.totalAmount, "Note": "Summary Row" });
+            record.breakdown.forEach(b => {
+                flatData.push({
+                    Date: record.date, "Total Invested": "", "Ticker": b.ticker, "Sector": b.sector, "Weight": b.weight.toFixed(2) + "%", "Allocated Amount": b.amount
+                });
+            });
+        });
+        const ws = XLSX.utils.json_to_sheet(flatData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "History");
+        XLSX.writeFile(wb, `Titans_Log_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function renderList() {
+        const list = document.getElementById('itemList');
+        list.innerHTML = '';
+        portfolio.forEach(p => { createListItem(p.ticker, p.sector, p.weight); });
+    }
+
+    function createListItem(ticker, sector, weightVal) {
+        const list = document.getElementById('itemList');
+        const li = document.createElement('li');
+        li.className = `item ${sector}`;
+        li.draggable = true;
+
+        let optionsHtml = '';
+        SECTORS.forEach(sec => {
+            const selected = sec === sector ? 'selected' : '';
+            optionsHtml += `<option value="${sec}" ${selected}>${SECTOR_LABELS[sec]}</option>`;
+        });
+
+        li.innerHTML = `
+            <div class="handle">☰</div>
+            <div>
+                <select class="sector-select" onchange="calculate(true)">${optionsHtml}</select>
+            </div>
+            <div style="display:flex; align-items:center;">
+                <input type="text" class="ticker-input" value="${ticker}" onchange="saveNames()">
+            </div>
+            <div style="text-align:right;">
+                <input type="number" class="weight-input" value="${weightVal ? weightVal.toFixed(2) : 0}" step="0.1" oninput="calculate(false)">
+            </div>
+            <div class="amount-cell">$0</div>
+            <div style="text-align:right;">
+                <input type="number" class="actual-input" value="" placeholder="Actual">
+            </div>
+            <button class="delete-btn" onclick="removeItem(this)">×</button>
+        `;
+        addDragEvents(li);
+        list.appendChild(li);
+    }
+
+    function addNewItem() {
+        createListItem("NEW", "agg", 0);
+        calculate(true);
+    }
+
+    function saveNames() { calculate(false); }
+    function removeItem(btn) { btn.closest('li').remove(); calculate(true); }
+
+    function resetRules() {
+        if(confirm("기본 Titans + 현금 설정으로 초기화하시겠습니까?")) {
+            document.getElementById('targetAgg').value = 30;
+            document.getElementById('targetBalAgg').value = 20;
+            document.getElementById('targetBal').value = 15;
+            document.getElementById('targetBalDef').value = 10;
+            document.getElementById('targetDef').value = 10;
+            document.getElementById('targetCry').value = 10;
+            document.getElementById('targetCash').value = 5;
+            localStorage.removeItem('titansAllocSettings_v22');
+            
+            portfolio = JSON.parse(JSON.stringify(defaultData));
+            renderList(); calculate(true);
+        }
+    }
+    
+    let dragSrcEl = null;
+    function addDragEvents(item) {
+        item.addEventListener('dragstart', function(e) { this.classList.add('dragging'); dragSrcEl = this; e.dataTransfer.effectAllowed = 'move'; });
+        item.addEventListener('dragover', function(e) { if (e.preventDefault) e.preventDefault(); return false; });
+        item.addEventListener('drop', function(e) {
+            if (e.stopPropagation) e.stopPropagation();
+            if (dragSrcEl !== this) {
+                const list = document.getElementById('itemList');
+                const allItems = [...list.querySelectorAll('.item')];
+                const srcIndex = allItems.indexOf(dragSrcEl);
+                const targetIndex = allItems.indexOf(this);
+                if (srcIndex < targetIndex) this.after(dragSrcEl); else this.before(dragSrcEl);
+                calculate(false);
+            } return false;
+        });
+        item.addEventListener('dragend', function() { this.classList.remove('dragging'); });
+    }
+</script>
+
+</body>
+</html>
